@@ -64,8 +64,13 @@ table {
 }
 td,th {
     border:1px solid white;
-    padding:5px 10px;
+    padding:8px 12px;
 }
+
+.symbol-row {
+    font-size:30px;
+}
+
 </style>
 </head>
 
@@ -98,13 +103,13 @@ PAYOUT: <span id="payout">0</span>
 <h3>役一覧 / PAYOUT</h3>
 <table>
 <tr><th>役</th><th>PAYOUT</th></tr>
-<tr><td>777</td><td>5000</td></tr>
-<tr><td>チェリー3</td><td>2000</td></tr>
-<tr><td>レモン3</td><td>1000</td></tr>
-<tr><td>ブドウ3</td><td>500</td></tr>
-<tr><td>ベル3</td><td>100</td></tr>
-<tr><td>チェリー2</td><td>50</td></tr>
-<tr><td>チェリー1</td><td>20</td></tr>
+<tr><td class="symbol-row">7️⃣ 7️⃣ 7️⃣</td><td>5000</td></tr>
+<tr><td class="symbol-row">🍒 🍒 🍒</td><td>2000</td></tr>
+<tr><td class="symbol-row">🍋 🍋 🍋</td><td>1000</td></tr>
+<tr><td class="symbol-row">🍇 🍇 🍇</td><td>500</td></tr>
+<tr><td class="symbol-row">🔔 🔔 🔔</td><td>100</td></tr>
+<tr><td class="symbol-row">🍒 🍒</td><td>50</td></tr>
+<tr><td class="symbol-row">🍒</td><td>20</td></tr>
 </table>
 
 <script>
@@ -132,12 +137,13 @@ function initReel(id){
 
 ["r1","r2","r3"].forEach(initReel);
 
-// リール状態
+// 状態
 for(let i=0;i<3;i++){
     reels.push({
         pos:0,
         speed:0,
         stopping:false,
+        target:0,
         result:""
     });
 }
@@ -159,27 +165,34 @@ function sound(f1,f2){
     o.stop(ctx.currentTime+0.2);
 }
 
-// メインループ
+// アニメーション
 function animate(){
     reels.forEach((r,i)=>{
         if(!spinning) return;
 
         if(r.speed>0){
             r.pos += r.speed;
-            r.pos %= 400;
 
             // 減速
             if(r.stopping){
-                r.speed *= 0.97;
-                if(r.speed < 0.5){
+                r.speed *= 0.96;
+
+                // ★ピタ止まり制御
+                if(r.speed < 1){
                     r.speed = 0;
 
-                    // ピタ止まり
+                    // 最も近い80px単位に吸着
+                    r.pos = Math.round(r.pos / 80) * 80;
+
                     const reel=document.getElementById("r"+(i+1));
-                    reel.style.transform="translateY(0)";
-                    reel.children[0].textContent=r.result;
+                    reel.style.transform="translateY(-"+r.pos+"px)";
+
+                    const index = (Math.floor(r.pos/80)) % symbols.length;
+                    r.result = symbols[index];
                 }
             }
+
+            r.pos %= 400;
 
             document.getElementById("r"+(i+1)).style.transform=
                 "translateY(-"+r.pos+"px)";
@@ -218,7 +231,6 @@ function stopReel(i){
     const r = reels[i];
     if(!spinning || r.stopping) return;
 
-    r.result = symbols[Math.floor(Math.random()*symbols.length)];
     r.stopping = true;
 
     sound(800,200);
