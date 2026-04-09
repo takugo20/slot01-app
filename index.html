@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スロットゲーム</title>
+
+<style>
+body {
+    text-align: center;
+    font-family: sans-serif;
+    background: #222;
+    color: white;
+}
+
+#reels {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.reel-container {
+    margin: 0 10px;
+}
+
+.reel {
+    width: 80px;
+    height: 80px;
+    font-size: 40px;
+    line-height: 80px;
+    background: white;
+    color: black;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+button {
+    font-size: 16px;
+    padding: 5px 15px;
+}
+
+#message {
+    margin: 15px;
+}
+
+canvas {
+    background: white;
+    margin-top: 20px;
+}
+
+table {
+    margin: 20px auto;
+    border-collapse: collapse;
+}
+
+td, th {
+    border: 1px solid white;
+    padding: 5px 10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎰 スロットゲーム</h1>
+
+<div>所持コイン: <span id="coins">1000</span></div>
+
+<button id="startBtn">スタート</button>
+
+<div id="reels">
+    <div class="reel-container">
+        <div class="reel" id="r1">🍒</div>
+        <button onclick="stopReel(0)">STOP</button>
+    </div>
+    <div class="reel-container">
+        <div class="reel" id="r2">🍋</div>
+        <button onclick="stopReel(1)">STOP</button>
+    </div>
+    <div class="reel-container">
+        <div class="reel" id="r3">🔔</div>
+        <button onclick="stopReel(2)">STOP</button>
+    </div>
+</div>
+
+<div id="message"></div>
+
+<!-- グラフ -->
+<canvas id="chart" width="300" height="150"></canvas>
+
+<!-- 配当表 -->
+<h3>配当表</h3>
+<table>
+<tr><th>役</th><th>配当</th></tr>
+<tr><td>777</td><td>100枚</td></tr>
+<tr><td>3つ揃い</td><td>50枚</td></tr>
+<tr><td>チェリー</td><td>10枚</td></tr>
+</table>
+
+<script>
+const symbols = ["7️⃣","🍒","🔔","🍋","🍇","🍉"];
+
+let coins = 1000;
+let spinning = false;
+let intervals = [];
+let stopped = [false,false,false];
+let history = [coins];
+
+// 効果音（簡易ビープ音）
+function playSound() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    osc.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.1);
+}
+
+// コイン更新
+function updateCoins() {
+    document.getElementById("coins").textContent = coins;
+    history.push(coins);
+    drawGraph();
+}
+
+// ランダム
+function rand() {
+    return symbols[Math.floor(Math.random()*symbols.length)];
+}
+
+// スタート
+document.getElementById("startBtn").onclick = () => {
+    if (spinning) return;
+
+    if (coins < 10) {
+        message.textContent = "コイン不足！";
+        return;
+    }
+
+    coins -= 10;
+    updateCoins();
+
+    spinning = true;
+    stopped = [false,false,false];
+    message.textContent = "";
+
+    intervals = [
+        setInterval(()=>r1.textContent=rand(),100),
+        setInterval(()=>r2.textContent=rand(),100),
+        setInterval(()=>r3.textContent=rand(),100)
+    ];
+};
+
+// 個別ストップ
+function stopReel(i) {
+    if (!spinning || stopped[i]) return;
+
+    clearInterval(intervals[i]);
+    stopped[i] = true;
+    playSound();
+
+    if (stopped.every(v=>v)) {
+        spinning = false;
+        checkResult();
+    }
+}
+
+// 判定
+function checkResult() {
+    const a = r1.textContent;
+    const b = r2.textContent;
+    const c = r3.textContent;
+
+    let payout = 0;
+    let msg = "";
+
+    if (a==="7️⃣"&&b==="7️⃣"&&c==="7️⃣") {
+        payout=100; msg="🎉777!";
+    }
+    else if (a===b && b===c) {
+        payout=50; msg="✨3つ揃い!";
+    }
+    else if (a==="🍒"||b==="🍒"||c==="🍒") {
+        payout=10; msg="🍒チェリー!";
+    }
+    else {
+        msg="ハズレ";
+    }
+
+    coins += payout;
+    updateCoins();
+
+    message.textContent = msg + (payout>0?(" +"+payout+"枚"):"");
+}
+
+// グラフ描画
+function drawGraph() {
+    const canvas = document.getElementById("chart");
+    const ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height - history[0]/5);
+
+    history.forEach((v,i)=>{
+        ctx.lineTo(i*10, canvas.height - v/5);
+    });
+
+    ctx.stroke();
+}
+</script>
+
+</body>
+</html>
