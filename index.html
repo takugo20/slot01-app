@@ -71,7 +71,6 @@ td,th {
     font-size:30px;
 }
 </style>
-
 </head>
 
 <body>
@@ -179,7 +178,8 @@ function animate(){
                 if(r.speed < 1){
                     r.speed = 0;
 
-                    // ★完全ピタ止まり（ここが重要）
+                    // ★バグ修正ポイント（順番重要）
+                    r.pos = r.pos % 400;
                     r.pos = Math.round(r.pos / 80) * 80;
 
                     const reel=document.getElementById("r"+(i+1));
@@ -189,9 +189,6 @@ function animate(){
                     r.result = symbols[index];
                 }
             }
-
-            // ★修正：modulo削除（これがバグ原因）
-            // r.pos %= 400;
 
             document.getElementById("r"+(i+1)).style.transform=
                 "translateY(-"+r.pos+"px)";
