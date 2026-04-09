@@ -3,24 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スロット 完全修正版</title>
+<title>スロット 完全版</title>
 
 <style>
 body { background:#111; color:white; text-align:center; font-family:sans-serif; }
+
+#info { margin:10px; font-size:20px; }
+
 #reels { display:flex; justify-content:center; margin:20px; }
-.reel { width:80px; height:80px; overflow:hidden; background:white; margin:0 10px; border-radius:10px;}
-.symbol { height:80px; line-height:80px; font-size:40px; }
+
+.reel {
+  width:80px; height:80px;
+  overflow:hidden;
+  background:white;
+  border-radius:10px;
+  margin:0 10px;
+}
+
+.symbol {
+  height:80px;
+  line-height:80px;
+  font-size:40px;
+}
+
 button { margin:5px; }
+
+table {
+  margin:20px auto;
+  border-collapse:collapse;
+}
+td,th {
+  border:1px solid white;
+  padding:8px 12px;
+}
+.symbol-row { font-size:30px; }
+
 </style>
 </head>
 
 <body>
 
-<h1>🎰 SLOT</h1>
+<h1>🎰 SLOT（完全版）</h1>
+
+<div id="info">
+CREDIT: <span id="credit">1000</span>
+PAYOUT: <span id="payout">0</span><br>
+設定: <span id="setting">6</span>
+</div>
 
 <div>
-CREDIT: <span id="credit">1000</span>
-PAYOUT: <span id="payout">0</span>
+<button onclick="setSetting(1)">1</button>
+<button onclick="setSetting(2)">2</button>
+<button onclick="setSetting(3)">3</button>
+<button onclick="setSetting(4)">4</button>
+<button onclick="setSetting(5)">5</button>
+<button onclick="setSetting(6)">6</button>
 </div>
 
 <button onclick="start()">START</button>
@@ -40,44 +77,47 @@ PAYOUT: <span id="payout">0</span>
   </div>
 </div>
 
+<h3>役一覧 / PAYOUT</h3>
+<table>
+<tr><th>役</th><th>PAYOUT</th></tr>
+<tr><td class="symbol-row">7️⃣ 7️⃣ 7️⃣</td><td>5000</td></tr>
+<tr><td class="symbol-row">🍒 🍒 🍒</td><td>2000</td></tr>
+<tr><td class="symbol-row">🍋 🍋 🍋</td><td>1000</td></tr>
+<tr><td class="symbol-row">🍇 🍇 🍇</td><td>500</td></tr>
+<tr><td class="symbol-row">🔔 🔔 🔔</td><td>100</td></tr>
+<tr><td class="symbol-row">🍒 🍒</td><td>50</td></tr>
+<tr><td class="symbol-row">🍒</td><td>20</td></tr>
+</table>
+
 <script>
 const symbols = ["7️⃣","🍒","🍋","🍇","🔔"];
-const SIZE = 80;
-const REEL_COUNT = 20;
-const LOOP = SIZE * REEL_COUNT;
 
 let credit = Number(localStorage.getItem("credit")) || 1000;
 let payout = 0;
 let spinning = false;
+let setting = 6;
 
 document.getElementById("credit").textContent = credit;
+document.getElementById("setting").textContent = setting;
 
 // リール状態
 const reels = Array.from({length:3}, () => ({
-  pos:0, speed:0, state:"idle", target:0, result:""
+  pos:0,
+  speed:0,
+  spinning:false
 }));
 
-// リール配列を保存（重要）
-const reelArrays = [];
-
-// 初期化
+// 初期表示
 function init(){
-  for(let i=0;i<3;i++){
+  reels.forEach((_,i)=>{
     const el = document.getElementById("r"+i);
-    const arr = [];
-
-    for(let j=0;j<REEL_COUNT;j++){
-      const sym = symbols[j % symbols.length];
-      arr.push(sym);
-
+    for(let j=0;j<20;j++){
       const d=document.createElement("div");
       d.className="symbol";
-      d.textContent = sym;
+      d.textContent = symbols[j % symbols.length];
       el.appendChild(d);
     }
-
-    reelArrays.push(arr);
-  }
+  });
 }
 init();
 
@@ -94,9 +134,14 @@ function sound(f1,f2){
   o.start(); o.stop(ctx.currentTime+0.2);
 }
 
+// 設定倍率
+function getRate(){
+  return {1:0.7,2:0.9,3:1.1,4:1.3,5:1.6,6:2.0}[setting];
+}
+
 // 内部抽選
 function lottery(){
-  const r = Math.random();
+  const r = Math.random() * getRate();
 
   if(r < 0.001) return ["7️⃣","7️⃣","7️⃣"];
   if(r < 0.01) return ["🍋","🍋","🍋"];
@@ -105,26 +150,15 @@ function lottery(){
   return ["🍒","🍋","🍇"];
 }
 
-let targetResult = [];
+let result = [];
 
-// アニメーション
+// 回転
 function loop(){
   reels.forEach((r,i)=>{
-    if(r.state==="idle"||r.state==="stopped") return;
+    if(!r.spinning) return;
 
-    r.pos += r.speed;
-    r.pos %= LOOP;
-
-    if(r.state==="stopping"){
-      r.speed *= 0.92;
-
-      if(Math.abs(r.pos - r.target) < r.speed){
-        r.pos = r.target;
-        r.speed = 0;
-        r.state = "stopped";
-        r.result = targetResult[i];
-      }
-    }
+    r.pos += 20;
+    r.pos %= 1600;
 
     document.getElementById("r"+i).style.transform =
       "translateY(-"+r.pos+"px)";
@@ -137,6 +171,7 @@ loop();
 // スタート
 function start(){
   if(spinning) return;
+
   if(credit < 10){
     alert("コイン不足");
     return;
@@ -147,47 +182,43 @@ function start(){
   update();
 
   spinning = true;
-  targetResult = lottery();
+  result = lottery();
 
   reels.forEach(r=>{
-    r.speed = 20;
-    r.state = "spinning";
+    r.spinning = true;
   });
 
   sound(200,800);
 }
 
-// ★完全修正ポイント
+// ★完全修正：即ピタ止まり
 function stopReel(i){
+  if(!spinning) return;
+
   const r = reels[i];
-  if(r.state !== "spinning") return;
+  if(!r.spinning) return;
 
-  r.state = "stopping";
+  r.spinning = false;
 
-  const arr = reelArrays[i];
-  const targetSymbol = targetResult[i];
+  const symbol = result[i];
 
-  // ★配列から正しい位置を探す
-  let index = arr.indexOf(targetSymbol);
-
-  // 見つからない場合（安全対策）
-  if(index === -1) index = 0;
-
-  r.target = index * SIZE;
+  // 強制的に中央に表示
+  const el = document.getElementById("r"+i);
+  el.style.transform = "translateY(0)";
+  el.innerHTML = '<div class="symbol">'+symbol+'</div>';
 
   sound(800,200);
 
-  if(reels.every(r=>r.state!=="spinning")){
-    setTimeout(()=>{
-      spinning = false;
-      judge();
-    },600);
+  // 全停止
+  if(reels.every(r=>!r.spinning)){
+    spinning = false;
+    judge();
   }
 }
 
 // 判定
 function judge(){
-  const [a,b,c] = targetResult;
+  const [a,b,c] = result;
 
   let p = 0;
 
@@ -201,6 +232,12 @@ function judge(){
   update();
 
   if(p>0) sound(300,1200);
+}
+
+// 設定変更
+function setSetting(s){
+  setting = s;
+  document.getElementById("setting").textContent = s;
 }
 
 // 更新
