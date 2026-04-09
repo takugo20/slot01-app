@@ -12,52 +12,28 @@ body {
     text-align:center;
     font-family:sans-serif;
 }
-
-#info {
-    font-size:20px;
-    margin:10px;
-}
-
-#reels {
-    display:flex;
-    justify-content:center;
-    margin:20px;
-}
-
-.reel-container {
-    margin:0 10px;
-}
-
+#info { font-size:20px; margin:10px; }
+#reels { display:flex; justify-content:center; margin:20px; }
+.reel-container { margin:0 10px; }
 .reel {
-    width:80px;
-    height:80px;
+    width:80px; height:80px;
     overflow:hidden;
     border-radius:10px;
     background:white;
     position:relative;
 }
-
-.inner {
-    position:absolute;
-    width:100%;
-}
-
+.inner { position:absolute; width:100%; }
 .symbol {
-    width:80px;
-    height:80px;
+    width:80px; height:80px;
     line-height:80px;
     font-size:40px;
 }
-
-.flash {
-    animation: flash 0.3s infinite;
-}
+.flash { animation: flash 0.3s infinite; }
 @keyframes flash {
     0%{background:#111;}
     50%{background:#500;}
     100%{background:#111;}
 }
-
 table {
     margin:20px auto;
     border-collapse:collapse;
@@ -66,10 +42,7 @@ td,th {
     border:1px solid white;
     padding:8px 12px;
 }
-
-.symbol-row {
-    font-size:30px;
-}
+.symbol-row { font-size:30px; }
 </style>
 </head>
 
@@ -134,11 +107,13 @@ function initReel(id){
 }
 ["r1","r2","r3"].forEach(initReel);
 
+// ★ stopDone追加
 for(let i=0;i<3;i++){
     reels.push({
         pos:0,
         speed:0,
         stopping:false,
+        stopDone:false,
         result:""
     });
 }
@@ -163,10 +138,11 @@ function animate(){
     reels.forEach((r,i)=>{
         if(!spinning) return;
 
+        // ★完全停止したら動かさない
+        if(r.stopDone) return;
+
         if(r.speed>0){
             r.pos += r.speed;
-
-            // ★これが重要（無限ループ）
             r.pos %= 400;
 
             if(r.stopping){
@@ -182,6 +158,9 @@ function animate(){
 
                     const index = (Math.floor(r.pos/80)) % 20;
                     r.result = symbols[index % symbols.length];
+
+                    // ★ここが核心
+                    r.stopDone = true;
                 }
             }
 
@@ -210,6 +189,7 @@ function start(){
     reels.forEach(r=>{
         r.speed=20;
         r.stopping=false;
+        r.stopDone=false; // ★リセット
         r.result="";
     });
 
