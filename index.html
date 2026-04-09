@@ -107,66 +107,42 @@ function initReel(id){
 }
 ["r1","r2","r3"].forEach(initReel);
 
-// ★ stopDone追加
+// ★target追加
 for(let i=0;i<3;i++){
     reels.push({
         pos:0,
         speed:0,
         stopping:false,
         stopDone:false,
+        target:0,
         result:""
     });
-}
-
-function sound(f1,f2){
-    const ctx=new AudioContext();
-    const o=ctx.createOscillator();
-    const g=ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-
-    o.frequency.setValueAtTime(f1,ctx.currentTime);
-    o.frequency.exponentialRampToValueAtTime(f2,ctx.currentTime+0.2);
-
-    g.gain.setValueAtTime(0.3,ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.2);
-
-    o.start();
-    o.stop(ctx.currentTime+0.2);
 }
 
 function animate(){
     reels.forEach((r,i)=>{
         if(!spinning) return;
-
-        // ★完全停止したら動かさない
         if(r.stopDone) return;
 
-        if(r.speed>0){
-            r.pos += r.speed;
-            r.pos %= 400;
+        r.pos += r.speed;
+        r.pos %= 400;
 
-            if(r.stopping){
-                r.speed *= 0.96;
+        if(r.stopping){
+            // ★ターゲットに近づいたら強制停止
+            if(Math.abs(r.pos - r.target) < r.speed){
+                r.pos = r.target;
+                r.speed = 0;
+                r.stopDone = true;
 
-                if(r.speed < 1){
-                    r.speed = 0;
-
-                    r.pos = Math.round(r.pos / 80) * 80;
-
-                    const reel=document.getElementById("r"+(i+1));
-                    reel.style.transform="translateY(-"+r.pos+"px)";
-
-                    const index = (Math.floor(r.pos/80)) % 20;
-                    r.result = symbols[index % symbols.length];
-
-                    // ★ここが核心
-                    r.stopDone = true;
-                }
+                const index = (Math.floor(r.pos/80)) % 20;
+                r.result = symbols[index % symbols.length];
+            } else {
+                r.speed *= 0.95;
             }
-
-            document.getElementById("r"+(i+1)).style.transform=
-                "translateY(-"+r.pos+"px)";
         }
+
+        document.getElementById("r"+(i+1)).style.transform =
+            "translateY(-"+r.pos+"px)";
     });
 
     requestAnimationFrame(animate);
@@ -189,11 +165,8 @@ function start(){
     reels.forEach(r=>{
         r.speed=20;
         r.stopping=false;
-        r.stopDone=false; // ★リセット
-        r.result="";
+        r.stopDone=false;
     });
-
-    sound(200,800);
 }
 
 function stopReel(i){
@@ -202,24 +175,10 @@ function stopReel(i){
 
     r.stopping = true;
 
-    sound(800,200);
-
-    checkReach();
-
-    if(reels.every(r=>r.stopping)){
-        setTimeout(()=>{
-            spinning=false;
-            judge();
-        },500);
-    }
-}
-
-function checkReach(){
-    const results = reels.map(r=>r.result).filter(x=>x);
-    if(results.length>=2 && results[0]===results[1]){
-        document.body.classList.add("flash");
-        setTimeout(()=>document.body.classList.remove("flash"),800);
-    }
+    // ★ここが超重要
+    const currentIndex = Math.floor(r.pos / 80);
+    const stopIndex = (currentIndex + 3) % 5; // 少し先で止める
+    r.target = stopIndex * 80;
 }
 
 function judge(){
@@ -238,10 +197,7 @@ function judge(){
 
     payout=p;
     credit+=p;
-
     update();
-
-    if(p>0) sound(300,1200);
 }
 
 function update(){
