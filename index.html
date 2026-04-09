@@ -6,36 +6,71 @@
 <title>スロット</title>
 
 <style>
-body { background:#111; color:white; text-align:center; font-family:sans-serif; }
-#info { font-size:20px; margin:10px; }
-#reels { display:flex; justify-content:center; margin:20px; }
-.reel-container { margin:0 10px; }
+body {
+    background:#111;
+    color:white;
+    text-align:center;
+    font-family:sans-serif;
+}
+
+#info {
+    font-size:20px;
+    margin:10px;
+}
+
+#reels {
+    display:flex;
+    justify-content:center;
+    margin:20px;
+}
+
+.reel-container {
+    margin:0 10px;
+}
+
 .reel {
-    width:80px; height:80px;
+    width:80px;
+    height:80px;
     overflow:hidden;
     border-radius:10px;
     background:white;
     position:relative;
 }
-.inner { position:absolute; width:100%; }
-.symbol { width:80px; height:80px; line-height:80px; font-size:40px; }
 
-.flash { animation: flash 0.3s infinite; }
-@keyframes flash {
-    0%{background:#111;}
-    50%{background:#500;}
-    100%{background:#111;}
+.inner {
+    position:absolute;
+    width:100%;
 }
 
-table { margin:20px auto; border-collapse:collapse; }
-td,th { border:1px solid white; padding:8px 12px; }
-.symbol-row { font-size:30px; }
+.symbol {
+    width:80px;
+    height:80px;
+    line-height:80px;
+    font-size:40px;
+}
+
+button {
+    margin-top:5px;
+}
+
+table {
+    margin:20px auto;
+    border-collapse:collapse;
+}
+td,th {
+    border:1px solid white;
+    padding:8px 12px;
+}
+
+.symbol-row {
+    font-size:30px;
+}
 </style>
 </head>
 
 <body>
 
-<h1>🎰 SLOT</h1>
+<h1>🎰 SLOT（安定版）</h1>
 
 <div id="info">
 CREDIT: <span id="credit">1000</span>
@@ -46,15 +81,15 @@ PAYOUT: <span id="payout">0</span>
 
 <div id="reels">
     <div class="reel-container">
-        <div class="reel"><div class="inner" id="r1"></div></div>
+        <div class="reel"><div class="inner" id="r0"></div></div>
         <button onclick="stopReel(0)">STOP</button>
     </div>
     <div class="reel-container">
-        <div class="reel"><div class="inner" id="r2"></div></div>
+        <div class="reel"><div class="inner" id="r1"></div></div>
         <button onclick="stopReel(1)">STOP</button>
     </div>
     <div class="reel-container">
-        <div class="reel"><div class="inner" id="r3"></div></div>
+        <div class="reel"><div class="inner" id="r2"></div></div>
         <button onclick="stopReel(2)">STOP</button>
     </div>
 </div>
@@ -73,41 +108,40 @@ PAYOUT: <span id="payout">0</span>
 
 <script>
 const symbols = ["7️⃣","🍒","🍋","🍇","🔔"];
+const REEL_LENGTH = 20;
+const SYMBOL_SIZE = 80;
+const LOOP_HEIGHT = REEL_LENGTH * SYMBOL_SIZE;
 
 let credit = Number(localStorage.getItem("credit")) || 1000;
 let payout = 0;
+let spinning = false;
 
-let spinning=false;
-let reels=[];
+document.getElementById("credit").textContent = credit;
 
-document.getElementById("credit").textContent=credit;
+// リール状態
+const reels = Array.from({length:3}, () => ({
+    pos: 0,
+    speed: 0,
+    state: "idle",
+    target: 0,
+    result: ""
+}));
 
 // リール生成
-function initReel(id){
-    const el=document.getElementById(id);
-    el.innerHTML="";
-    for(let i=0;i<20;i++){
-        const d=document.createElement("div");
-        d.className="symbol";
-        d.textContent=symbols[i % symbols.length];
-        el.appendChild(d);
-    }
-}
-["r1","r2","r3"].forEach(initReel);
-
-// 状態
-for(let i=0;i<3;i++){
-    reels.push({
-        pos:0,
-        speed:0,
-        stopping:false,
-        stopDone:false,
-        target:0,
-        result:""
+function init(){
+    reels.forEach((_,i)=>{
+        const el = document.getElementById("r"+i);
+        for(let j=0;j<REEL_LENGTH;j++){
+            const d=document.createElement("div");
+            d.className="symbol";
+            d.textContent = symbols[j % symbols.length];
+            el.appendChild(d);
+        }
     });
 }
+init();
 
-// 🔊 効果音
+// 効果音
 function sound(f1,f2){
     const ctx=new AudioContext();
     const o=ctx.createOscillator();
@@ -125,87 +159,84 @@ function sound(f1,f2){
 }
 
 // アニメーション
-function animate(){
+function loop(){
     reels.forEach((r,i)=>{
-        if(!spinning) return;
-        if(r.stopDone) return;
+        if(r.state==="idle" || r.state==="stopped") return;
 
         r.pos += r.speed;
-        r.pos %= 400;
+        r.pos %= LOOP_HEIGHT;
 
-        if(r.stopping){
+        if(r.state==="stopping"){
+            r.speed *= 0.95;
+
             if(Math.abs(r.pos - r.target) < r.speed){
                 r.pos = r.target;
                 r.speed = 0;
-                r.stopDone = true;
+                r.state = "stopped";
 
-                const index = (Math.floor(r.pos/80)) % 20;
-                r.result = symbols[index % symbols.length];
-            } else {
-                r.speed *= 0.95;
+                const index = Math.floor(r.pos / SYMBOL_SIZE) % symbols.length;
+                r.result = symbols[index];
             }
         }
 
-        document.getElementById("r"+(i+1)).style.transform =
+        document.getElementById("r"+i).style.transform =
             "translateY(-"+r.pos+"px)";
     });
 
-    requestAnimationFrame(animate);
+    requestAnimationFrame(loop);
 }
-animate();
+loop();
 
 // スタート
 function start(){
     if(spinning) return;
-    if(credit<10){
+    if(credit < 10){
         alert("コイン不足");
         return;
     }
 
-    credit-=10;
-    payout=0;
+    credit -= 10;
+    payout = 0;
     update();
 
-    spinning=true;
+    spinning = true;
 
     reels.forEach(r=>{
-        r.speed=20;
-        r.stopping=false;
-        r.stopDone=false;
-        r.result="";
+        r.speed = 20;
+        r.state = "spinning";
+        r.result = "";
     });
 
     sound(200,800);
 }
 
-// ストップ
+// 停止
 function stopReel(i){
     const r = reels[i];
-    if(!spinning || r.stopping) return;
+    if(r.state !== "spinning") return;
 
-    r.stopping = true;
+    r.state = "stopping";
 
-    const currentIndex = Math.floor(r.pos / 80);
-    const stopIndex = (currentIndex + 3) % 5;
-    r.target = stopIndex * 80;
+    const index = Math.floor(r.pos / SYMBOL_SIZE);
+    const offset = 3; // 少し先で止める
+    r.target = ((index + offset) % symbols.length) * SYMBOL_SIZE;
 
     sound(800,200);
 
-    // ★全停止チェック
-    if(reels.every(r=>r.stopping)){
+    if(reels.every(r=>r.state==="stopping" || r.state==="stopped")){
         setTimeout(()=>{
-            spinning=false;
+            spinning = false;
             judge();
-        },500);
+        },600);
     }
 }
 
 // 判定
 function judge(){
-    const [a,b,c]=reels.map(r=>r.result);
-    let p=0;
+    const [a,b,c] = reels.map(r=>r.result);
 
-    const cherry=[a,b,c].filter(x=>x==="🍒").length;
+    let p = 0;
+    const cherry = [a,b,c].filter(x=>x==="🍒").length;
 
     if(a==="7️⃣"&&b==="7️⃣"&&c==="7️⃣") p=5000;
     else if(cherry===3) p=2000;
@@ -215,8 +246,8 @@ function judge(){
     else if(cherry===2) p=50;
     else if(cherry===1) p=20;
 
-    payout=p;
-    credit+=p;
+    payout = p;
+    credit += p;
 
     update();
 
@@ -225,9 +256,9 @@ function judge(){
 
 // 更新
 function update(){
-    document.getElementById("credit").textContent=credit;
-    document.getElementById("payout").textContent=payout;
-    localStorage.setItem("credit",credit);
+    document.getElementById("credit").textContent = credit;
+    document.getElementById("payout").textContent = payout;
+    localStorage.setItem("credit", credit);
 }
 </script>
 
