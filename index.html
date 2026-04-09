@@ -3,210 +3,229 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>スロットゲーム</title>
+<title>スロット</title>
 
 <style>
 body {
-    text-align: center;
-    font-family: sans-serif;
-    background: #222;
-    color: white;
+    background:#111;
+    color:white;
+    text-align:center;
+    font-family:sans-serif;
+}
+
+#info {
+    margin:10px;
+    font-size:20px;
 }
 
 #reels {
-    display: flex;
-    justify-content: center;
-    margin: 20px 0;
+    display:flex;
+    justify-content:center;
+    margin:20px 0;
 }
 
 .reel-container {
-    margin: 0 10px;
+    margin:0 10px;
 }
 
 .reel {
-    width: 80px;
-    height: 80px;
-    font-size: 40px;
-    line-height: 80px;
-    background: white;
-    color: black;
-    border-radius: 10px;
-    margin-bottom: 10px;
+    width:80px;
+    height:80px;
+    overflow:hidden;
+    border-radius:10px;
+    background:white;
+}
+
+.inner {
+    display:flex;
+    flex-direction:column;
+    animation: spin 0.2s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-80px); }
+}
+
+.symbol {
+    width:80px;
+    height:80px;
+    line-height:80px;
+    font-size:40px;
 }
 
 button {
-    font-size: 16px;
-    padding: 5px 15px;
-}
-
-#message {
-    margin: 15px;
-}
-
-canvas {
-    background: white;
-    margin-top: 20px;
+    margin-top:5px;
 }
 
 table {
-    margin: 20px auto;
-    border-collapse: collapse;
+    margin:20px auto;
+    border-collapse:collapse;
 }
-
-td, th {
-    border: 1px solid white;
-    padding: 5px 10px;
+td,th {
+    border:1px solid white;
+    padding:5px 10px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🎰 スロットゲーム</h1>
+<h1>🎰 SLOT</h1>
 
-<div>所持コイン: <span id="coins">1000</span></div>
+<div id="info">
+    CREDIT: <span id="credit">1000</span>　
+    PAYOUT: <span id="payout">0</span>
+</div>
 
-<button id="startBtn">スタート</button>
+<button onclick="start()">START</button>
 
 <div id="reels">
     <div class="reel-container">
-        <div class="reel" id="r1">🍒</div>
+        <div class="reel"><div class="inner" id="r1"></div></div>
         <button onclick="stopReel(0)">STOP</button>
     </div>
     <div class="reel-container">
-        <div class="reel" id="r2">🍋</div>
+        <div class="reel"><div class="inner" id="r2"></div></div>
         <button onclick="stopReel(1)">STOP</button>
     </div>
     <div class="reel-container">
-        <div class="reel" id="r3">🔔</div>
+        <div class="reel"><div class="inner" id="r3"></div></div>
         <button onclick="stopReel(2)">STOP</button>
     </div>
 </div>
 
-<div id="message"></div>
-
-<!-- グラフ -->
-<canvas id="chart" width="300" height="150"></canvas>
-
-<!-- 配当表 -->
 <h3>配当表</h3>
 <table>
-<tr><th>役</th><th>配当</th></tr>
-<tr><td>777</td><td>100枚</td></tr>
-<tr><td>3つ揃い</td><td>50枚</td></tr>
-<tr><td>チェリー</td><td>10枚</td></tr>
+<tr><th>役</th><th>PAYOUT</th></tr>
+<tr><td>777</td><td>5000</td></tr>
+<tr><td>ベル3</td><td>300</td></tr>
+<tr><td>フルーツ3</td><td>150</td></tr>
+<tr><td>チェリー3</td><td>100</td></tr>
+<tr><td>チェリー2</td><td>30</td></tr>
+<tr><td>チェリー1</td><td>10</td></tr>
 </table>
 
 <script>
-const symbols = ["7️⃣","🍒","🔔","🍋","🍇","🍉"];
+const symbols = ["7️⃣","🔔","🍋","🍇","🍉","🍒"];
 
-let coins = 1000;
-let spinning = false;
-let intervals = [];
-let stopped = [false,false,false];
-let history = [coins];
+let credit = Number(localStorage.getItem("credit")) || 1000;
+let payout = 0;
 
-// 効果音（簡易ビープ音）
-function playSound() {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    osc.connect(ctx.destination);
+let spinning=false;
+let stopped=[false,false,false];
+let results=["","",""];
+
+document.getElementById("credit").textContent = credit;
+
+// リール初期化
+function initReel(id){
+    const el = document.getElementById(id);
+    el.innerHTML="";
+    for(let i=0;i<20;i++){
+        const d=document.createElement("div");
+        d.className="symbol";
+        d.textContent = symbols[i % symbols.length];
+        el.appendChild(d);
+    }
+}
+["r1","r2","r3"].forEach(initReel);
+
+// 豪華効果音
+function sound(type){
+    const ctx=new AudioContext();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if(type==="stop"){
+        osc.frequency.setValueAtTime(600,ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(200,ctx.currentTime+0.2);
+    } else {
+        osc.frequency.setValueAtTime(200,ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800,ctx.currentTime+0.3);
+    }
+
+    gain.gain.setValueAtTime(0.3,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3);
+
     osc.start();
-    osc.stop(ctx.currentTime + 0.1);
-}
-
-// コイン更新
-function updateCoins() {
-    document.getElementById("coins").textContent = coins;
-    history.push(coins);
-    drawGraph();
-}
-
-// ランダム
-function rand() {
-    return symbols[Math.floor(Math.random()*symbols.length)];
+    osc.stop(ctx.currentTime+0.3);
 }
 
 // スタート
-document.getElementById("startBtn").onclick = () => {
-    if (spinning) return;
-
-    if (coins < 10) {
-        message.textContent = "コイン不足！";
+function start(){
+    if(spinning) return;
+    if(credit<10){
+        alert("コイン不足");
         return;
     }
 
-    coins -= 10;
-    updateCoins();
+    credit-=10;
+    payout=0;
+    update();
 
-    spinning = true;
-    stopped = [false,false,false];
-    message.textContent = "";
+    spinning=true;
+    stopped=[false,false,false];
 
-    intervals = [
-        setInterval(()=>r1.textContent=rand(),100),
-        setInterval(()=>r2.textContent=rand(),100),
-        setInterval(()=>r3.textContent=rand(),100)
-    ];
-};
+    document.querySelectorAll(".inner").forEach(el=>{
+        el.style.animationPlayState="running";
+    });
 
-// 個別ストップ
-function stopReel(i) {
-    if (!spinning || stopped[i]) return;
+    sound("start");
+}
 
-    clearInterval(intervals[i]);
-    stopped[i] = true;
-    playSound();
+// 停止
+function stopReel(i){
+    if(!spinning || stopped[i]) return;
 
-    if (stopped.every(v=>v)) {
-        spinning = false;
-        checkResult();
+    const reel=document.getElementById("r"+(i+1));
+    reel.style.animationPlayState="paused";
+
+    const result = symbols[Math.floor(Math.random()*symbols.length)];
+    reel.children[0].textContent=result;
+
+    results[i]=result;
+    stopped[i]=true;
+
+    sound("stop");
+
+    if(stopped.every(v=>v)){
+        spinning=false;
+        judge();
     }
 }
 
 // 判定
-function checkResult() {
-    const a = r1.textContent;
-    const b = r2.textContent;
-    const c = r3.textContent;
+function judge(){
+    const [a,b,c]=results;
 
-    let payout = 0;
-    let msg = "";
+    let p=0;
 
-    if (a==="7️⃣"&&b==="7️⃣"&&c==="7️⃣") {
-        payout=100; msg="🎉777!";
-    }
-    else if (a===b && b===c) {
-        payout=50; msg="✨3つ揃い!";
-    }
-    else if (a==="🍒"||b==="🍒"||c==="🍒") {
-        payout=10; msg="🍒チェリー!";
-    }
-    else {
-        msg="ハズレ";
-    }
+    const cherries=[a,b,c].filter(x=>x==="🍒").length;
 
-    coins += payout;
-    updateCoins();
+    if(a==="7️⃣"&&b==="7️⃣"&&c==="7️⃣") p=5000;
+    else if(a==="🔔"&&b==="🔔"&&c==="🔔") p=300;
+    else if(a===b && b===c) p=150;
+    else if(cherries===3) p=100;
+    else if(cherries===2) p=30;
+    else if(cherries===1) p=10;
 
-    message.textContent = msg + (payout>0?(" +"+payout+"枚"):"");
+    payout=p;
+    credit+=p;
+
+    update();
+
+    if(p>0) sound("start");
 }
 
-// グラフ描画
-function drawGraph() {
-    const canvas = document.getElementById("chart");
-    const ctx = canvas.getContext("2d");
-
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    ctx.beginPath();
-    ctx.moveTo(0, canvas.height - history[0]/5);
-
-    history.forEach((v,i)=>{
-        ctx.lineTo(i*10, canvas.height - v/5);
-    });
-
-    ctx.stroke();
+// 更新
+function update(){
+    document.getElementById("credit").textContent=credit;
+    document.getElementById("payout").textContent=payout;
+    localStorage.setItem("credit",credit);
 }
 </script>
 
