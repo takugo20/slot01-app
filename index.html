@@ -14,14 +14,14 @@ body {
 }
 
 #info {
-    margin:10px;
     font-size:20px;
+    margin:10px;
 }
 
 #reels {
     display:flex;
     justify-content:center;
-    margin:20px 0;
+    margin:20px;
 }
 
 .reel-container {
@@ -34,17 +34,12 @@ body {
     overflow:hidden;
     border-radius:10px;
     background:white;
+    position:relative;
 }
 
 .inner {
-    display:flex;
-    flex-direction:column;
-    animation: spin 0.2s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-80px); }
+    position:absolute;
+    width:100%;
 }
 
 .symbol {
@@ -58,13 +53,14 @@ button {
     margin-top:5px;
 }
 
-table {
-    margin:20px auto;
-    border-collapse:collapse;
+.flash {
+    animation: flash 0.3s infinite;
 }
-td,th {
-    border:1px solid white;
-    padding:5px 10px;
+
+@keyframes flash {
+    0%{background:#fff;}
+    50%{background:#f00;}
+    100%{background:#fff;}
 }
 </style>
 </head>
@@ -74,8 +70,8 @@ td,th {
 <h1>🎰 SLOT</h1>
 
 <div id="info">
-    CREDIT: <span id="credit">1000</span>　
-    PAYOUT: <span id="payout">0</span>
+CREDIT: <span id="credit">1000</span>
+PAYOUT: <span id="payout">0</span>
 </div>
 
 <button onclick="start()">START</button>
@@ -95,16 +91,7 @@ td,th {
     </div>
 </div>
 
-<h3>配当表</h3>
-<table>
-<tr><th>役</th><th>PAYOUT</th></tr>
-<tr><td>777</td><td>5000</td></tr>
-<tr><td>ベル3</td><td>300</td></tr>
-<tr><td>フルーツ3</td><td>150</td></tr>
-<tr><td>チェリー3</td><td>100</td></tr>
-<tr><td>チェリー2</td><td>30</td></tr>
-<tr><td>チェリー1</td><td>10</td></tr>
-</table>
+<div id="message"></div>
 
 <script>
 const symbols = ["7️⃣","🔔","🍋","🍇","🍉","🍒"];
@@ -113,26 +100,29 @@ let credit = Number(localStorage.getItem("credit")) || 1000;
 let payout = 0;
 
 let spinning=false;
-let stopped=[false,false,false];
+let intervals=[];
 let results=["","",""];
+let stopped=[false,false,false];
 
-document.getElementById("credit").textContent = credit;
+document.getElementById("credit").textContent=credit;
 
-// リール初期化
-function initReel(id){
-    const el = document.getElementById(id);
-    el.innerHTML="";
-    for(let i=0;i<20;i++){
-        const d=document.createElement("div");
-        d.className="symbol";
-        d.textContent = symbols[i % symbols.length];
-        el.appendChild(d);
-    }
+// 初期リール
+function init(){
+    ["r1","r2","r3"].forEach(id=>{
+        const el=document.getElementById(id);
+        el.innerHTML="";
+        symbols.forEach(s=>{
+            const d=document.createElement("div");
+            d.className="symbol";
+            d.textContent=s;
+            el.appendChild(d);
+        });
+    });
 }
-["r1","r2","r3"].forEach(initReel);
+init();
 
-// 豪華効果音
-function sound(type){
+// 豪華音
+function sound(freq1,freq2){
     const ctx=new AudioContext();
     const osc=ctx.createOscillator();
     const gain=ctx.createGain();
@@ -140,19 +130,14 @@ function sound(type){
     osc.connect(gain);
     gain.connect(ctx.destination);
 
-    if(type==="stop"){
-        osc.frequency.setValueAtTime(600,ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(200,ctx.currentTime+0.2);
-    } else {
-        osc.frequency.setValueAtTime(200,ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(800,ctx.currentTime+0.3);
-    }
+    osc.frequency.setValueAtTime(freq1,ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq2,ctx.currentTime+0.2);
 
     gain.gain.setValueAtTime(0.3,ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.2);
 
     osc.start();
-    osc.stop(ctx.currentTime+0.3);
+    osc.stop(ctx.currentTime+0.2);
 }
 
 // スタート
@@ -169,28 +154,40 @@ function start(){
 
     spinning=true;
     stopped=[false,false,false];
+    results=["","",""];
 
-    document.querySelectorAll(".inner").forEach(el=>{
-        el.style.animationPlayState="running";
+    intervals = [0,1,2].map(i=>{
+        let pos=0;
+        return setInterval(()=>{
+            pos+=20;
+            document.getElementById("r"+(i+1)).style.transform=
+                "translateY("+(pos%480)+"px)";
+        },50);
     });
 
-    sound("start");
+    sound(200,800);
 }
 
 // 停止
 function stopReel(i){
     if(!spinning || stopped[i]) return;
 
-    const reel=document.getElementById("r"+(i+1));
-    reel.style.animationPlayState="paused";
+    clearInterval(intervals[i]);
 
     const result = symbols[Math.floor(Math.random()*symbols.length)];
+    results[i]=result;
+
+    const reel=document.getElementById("r"+(i+1));
+
+    // 中央にピタッと配置
+    reel.style.transform="translateY(0)";
     reel.children[0].textContent=result;
 
-    results[i]=result;
     stopped[i]=true;
 
-    sound("stop");
+    sound(800,200);
+
+    checkReach();
 
     if(stopped.every(v=>v)){
         spinning=false;
@@ -198,27 +195,40 @@ function stopReel(i){
     }
 }
 
+// リーチ演出
+function checkReach(){
+    const [a,b,c]=results.filter(x=>x!=="");
+
+    if(results.filter(x=>x!=="").length>=2){
+        if(a===b){
+            document.body.classList.add("flash");
+            setTimeout(()=>document.body.classList.remove("flash"),1000);
+        }
+    }
+}
+
 // 判定
 function judge(){
     const [a,b,c]=results;
-
     let p=0;
 
-    const cherries=[a,b,c].filter(x=>x==="🍒").length;
+    const cherryCount=[a,b,c].filter(x=>x==="🍒").length;
 
     if(a==="7️⃣"&&b==="7️⃣"&&c==="7️⃣") p=5000;
     else if(a==="🔔"&&b==="🔔"&&c==="🔔") p=300;
-    else if(a===b && b===c) p=150;
-    else if(cherries===3) p=100;
-    else if(cherries===2) p=30;
-    else if(cherries===1) p=10;
+    else if(a==="🍋"&&b==="🍋"&&c==="🍋") p=200;
+    else if(a==="🍇"&&b==="🍇"&&c==="🍇") p=180;
+    else if(a==="🍉"&&b==="🍉"&&c==="🍉") p=150;
+    else if(cherryCount===3) p=100;
+    else if(cherryCount===2) p=30;
+    else if(cherryCount===1) p=10;
 
     payout=p;
     credit+=p;
 
     update();
 
-    if(p>0) sound("start");
+    if(p>0) sound(300,1200);
 }
 
 // 更新
