@@ -70,8 +70,8 @@ td,th {
 .symbol-row {
     font-size:30px;
 }
-
 </style>
+
 </head>
 
 <body>
@@ -143,7 +143,6 @@ for(let i=0;i<3;i++){
         pos:0,
         speed:0,
         stopping:false,
-        target:0,
         result:""
     });
 }
@@ -177,11 +176,10 @@ function animate(){
             if(r.stopping){
                 r.speed *= 0.96;
 
-                // ★ピタ止まり制御
                 if(r.speed < 1){
                     r.speed = 0;
 
-                    // 最も近い80px単位に吸着
+                    // ★完全ピタ止まり（ここが重要）
                     r.pos = Math.round(r.pos / 80) * 80;
 
                     const reel=document.getElementById("r"+(i+1));
@@ -192,7 +190,8 @@ function animate(){
                 }
             }
 
-            r.pos %= 400;
+            // ★修正：modulo削除（これがバグ原因）
+            // r.pos %= 400;
 
             document.getElementById("r"+(i+1)).style.transform=
                 "translateY(-"+r.pos+"px)";
